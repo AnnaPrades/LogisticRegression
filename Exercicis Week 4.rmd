@@ -1,0 +1,186 @@
+---
+title: "Applied Logistic Regression: Exercice Week 4"
+author: "Anna Prades"
+date: "Wednesday, May 27, 2015"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+hypo <- read.csv("hyponatremia.csv")
+```
+
+a. Logistic regression analysis usign nas 135 as dependent variable and female as VI.
+
+```{r, echo=FALSE}
+glmHypo <- glm(nas135 ~ female, family = binomial(link= "logit"), data = hypo)
+summary(glmHypo)
+logLik(glmHypo)
+```
+
+a. Logistic regression analysis usign nas 135 as dependent variable and runtime as VI.
+```{r}
+glmHypo2 <- glm(nas135 ~ runtime, family = binomial(link= "logit"), data = hypo)
+summary(glmHypo2)
+logLik(glmHypo2)
+```
+
+Les betes són les adjusted odds ratio.
+I si exponencio les betes tinc les odds ratio
+
+```{r}
+OR_female <- exp(glmHypo$coefficients[2])
+OR_female
+OR_runtime <- exp(glmHypo2$coefficients[2])
+OR_runtime
+```
+Les log odds ratio d'hyoinatrema per a dones és 1.225. La constant indica la logg odds pels homes.
+L'exponencial de 1.225= 3.407m que vol dir ue les oods d'hyponatrema entre les dones és 3.05 cops més alta que entre els homes.
+
+El coeficient de runtime indica que el log de les odds s'incrementa en 0.155 per
+cada minut de cursa. 
+L'intercept de runtime és el el log de les odds si temps igual a 0. No té sentit.
+
+Calcular totes les Odds Ratios de cop de cop:
+```{r}
+exp(coef(glmHypo2))
+```
+
+
+e. Calcula l'odds ratio d'un corredor que triga 2 hores
+Les log-odds ratio per c unitats en x és: g(x+c) - g(x)= c*beta
+Odds ratio = exp(c*beta)
+```{r}
+confint.default(glmHypo2)
+```
+#OR 2 hores
+exp(0.015502*120) #beta
+[1]  6.425279
+#interval inferior
+exp(0.009443939*120)
+[1] 3.105804
+#interval superior
+exp(0.02155991*120)
+[1] 13.29236
+Les odds d'un corredor que fa dues hores més que un alte són 6 cops més grans.
+La ratio varia entre 3 cops i 13 cops més akta.
+
+
+f. Fit a model with female and runtime
+```{r}
+glmHypo3 <- glm(nas135 ~ female + runtime, family = binomial(link= "logit"), data = hypo)
+summary(glmHypo3)
+logLik(glmHypo3)
+```
+
+e. compara els coeficients de les doens en model 1 vs model 3. 
+Quin és el % de canvi?
+
+(glmHypo$coefficient[2]-glmHypo3$coefficient[2])*100/glmHypo$coefficient[2]
+ female 
+21.3812 
+
+Hi ha un 20.4% de canvi que suggereix possible confusió amb runtime
+
+f. Calcula l'odds ratio d'una dona comparat amb un home
+```{r}
+exp(glmHypo3$coefficient[2])
+```
+
+Les dones tenen 2.6 més odds que els homes de tenir hypo...
+
+i. Associació entre dones i runtime
+```{r}
+boxplot(runtime ~ female, data=hypo)
+```
+Les dones triguen més temps a fer la marató.
+
+
+
+#Fer correlacions
+```{r}
+pairs(hypo[ , c("runtime", "wtdiff", "bmi")])
+```
+
+#correlacions ignorant na
+cor(hypo$runtime[!is.na(hypo$runtime)], hypo$female[!is.na(hypo$runtime)])
+
+j) Avaluar la interacció entre dones i runtime
+
+```{r}
+glmHypo4 <- glm(nas135 ~ female * runtime, family = binomial(link= "logit"), data = hypo)
+summary(glmHypo4)
+logLik(glmHypo4)
+```
+La interacció entre les dues variables no és significativa(0.669)
+
+#k. Afegir una variable dicotòmica
+Crear una variable que dicotimitzi wtdiff
+hypo$wgain = as.integer(hypo$wtdiff > 0) #crea un vectorlògic 1 si igual o major que 0, 0 si menor
+```{r}
+glmHypo5 <- glm(nas135 ~ female * wgain + runtime, family = binomial(link= "logit"), data = hypo)
+summary(glmHypo5)
+logLik(glmHypo5)
+```
+
+La interacció entre gènere i wgain és significativa al 10% /p=6.9%).
+#Calcula odds ratio per homes que guangye pes vs el que no
+beta0 és la cta, bet1 dones, beta 3 wgain, beta4 runtime, beta 5 interacc dones i wgain
+(beta0 + beta3) menys (beta0)= beta3 #com que no són dones beta 5=0
+exp(glmHypo5$coefficient[3])
+   wgain 
+11.03421 
+#Calcula odds ratio per dones que guanyes pes vs les que no
+
+(beta0 + beta1 + beta3 + beta 5) menys (beta0 + beta1)= beta3 + beta5
+exp
+glmHypo5$coefficient[3]+glmHypo5$coefficient[5]
+   wgain 
+1.199144 
+> exp(1.199144)
+[1] 3.317276
+
+# Compara fent servir la likelihood ratio ell model de dones i runtime, i el model
+# amb dones, runtima, wgain i ruant3p i bmi.
+#Els dos models han de tenir el matix número d'observacions. Hi ha NAs en  algunes observacions
+```{r}
+colSums(is.na(hypo))
+```
+
+Com que tinc columnes amb NA, no puc comparar Likelihood. Creo bbdd sense NA
+```{r}
+hypocl <- hypo[!rowSums(is.na(hypo)), ]
+```
+
+Fer models pels dos
+```{r}
+glmHypo6 <- glm(nas135 ~ female  + runtime, family = binomial(link= "logit"), data = hypocl)
+summary(glmHypo6)
+logLik(glmHypo6)
+glmHypo7 <- glm(nas135 ~ female + runtime + wgain + urinat3p, family = binomial(link= "logit"), data = hypocl)
+summary(glmHypo7)
+logLik(glmHypo7)
+```
+#Resta dels dos LogLik
+(-131.6178 - (-148.2401) )
+[1] 16.6223
+G = 2(LogLo7 - LogLik6)
+> 2 *16.6223
+[1] 33.2446
+
+ p <- 1 - pchisq(33.2446, 3) #3degrees of freedom
+> p
+[1] 2.859874e-07 #pràctricmanet 0
+
+#Fent comparació fent servir un package: Require(lmtest)
+install.packages("lmtest")
+install.packages("zoo")
+
+```{r}
+require(lmtest)
+lrtest(glmHypo6, glmHypo7) 
+```
+
